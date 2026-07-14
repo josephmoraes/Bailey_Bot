@@ -3,7 +3,7 @@ const {
     useMultiFileAuthState
 } = require("@whiskeysockets/baileys");
 
-const LIMITE_ENVIO = 10;
+const LIMITE_ENVIO = 1;
 
 function esperar(min, max) {
 
@@ -146,13 +146,47 @@ async function iniciar() {
                         ? `Olá, ${cliente.nome.trim()}! Tudo bem?`
                         : "Olá! Tudo bem?";
 
-                const mensagem =
-                `${saudacao}
+                const mensagens = [
+                    [
+                        saudacao,
+                        "",
+                        "Aqui é o Noberto da Refricom.",
+                        "Passando para saber como você está e me colocar à disposição caso precise de algum produto ou orçamento.",
+                        "",
+                        "Estamos à disposição! 😊"
+                    ].join("\n"),
 
-                Aqui é o Noberto da Refricom. Passando para saber como você está e me colocar à disposição caso precise de algum produto ou orçamento.
-                Estamos à disposição! 😊`;
+                    [
+                        saudacao,
+                        "",
+                        "Aqui é o Noberto da Refricom.",
+                        "Faz um tempo que não conversamos e gostaria de saber se vocês estão precisando de algum produto ou orçamento.",
+                        "",
+                        "Conte conosco sempre que precisar! 😊"
+                    ].join("\n"),
 
-                
+                    [
+                        saudacao,
+                        "",
+                        "Aqui é o Noberto da Refricom.",
+                        "Estou entrando em contato para reforçar que continuamos à disposição para atender qualquer necessidade em refrigeração ou para fazer um orçamento.",
+                        "",
+                        "Será um prazer atendê-lo! 😊"
+                    ].join("\n"),
+
+                    [
+                        saudacao,
+                        "",
+                        "Aqui é o Noberto da Refricom.",
+                        "Espero que esteja tudo bem com vocês. Passando para lembrar que, caso precisem de produtos ou de um orçamento, estamos prontos para ajudar.",
+                        "",
+                        "Fico no aguardo. Um grande abraço! 😊"
+                    ].join("\n")
+                ];
+
+                // Escolhe uma mensagem aleatoriamente
+                const mensagem = mensagens[Math.floor(Math.random() * mensagens.length)];
+
                 if (clienteEnviado(numero)) {
 
 
@@ -173,48 +207,40 @@ async function iniciar() {
 
 
                 await sock.sendMessage(
-
                     numero + "@s.whatsapp.net",
-
                     {
-
                         text: mensagem
-
                     }
-
                 );
-
-
-
-
 
                 console.log("✅ Mensagem enviada para:", cliente.nome || "(sem nome)");
 
-
-
-
+                // Continua usando o status.json
                 marcarComoEnviado(numero, cliente.nome || "");
 
-
-
+                // Atualiza a planilha
+                cliente["Data de envio"] = new Date().toLocaleString("pt-BR");
 
                 enviadosNaRodada++;
 
 
 
 
-                await esperar(15, 40);
+                await esperar(60, 120);
 
 
 
             }
 
+            const workbook = XLSX.readFile("clientes.xlsx");
 
+            const worksheet = XLSX.utils.json_to_sheet(clientes);
 
+            workbook.Sheets[workbook.SheetNames[0]] = worksheet;
 
+            XLSX.writeFile(workbook, "clientes.xlsx");
 
             console.log("✅ Finalizado");
-
 
         }
 
