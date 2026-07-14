@@ -3,7 +3,7 @@ const {
     useMultiFileAuthState
 } = require("@whiskeysockets/baileys");
 
-const LIMITE_ENVIO = 1;
+const LIMITE_ENVIO = 5;
 
 function esperar(min, max) {
 
@@ -189,8 +189,10 @@ async function iniciar() {
 
                 if (clienteEnviado(numero)) {
 
-
-                    console.log("⏭️ Já enviado:", cliente.nome);
+                    console.log(
+                        "⏭️ Já enviado:",
+                        cliente.nome || numero
+                    );
 
                     continue;
 
