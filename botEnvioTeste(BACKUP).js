@@ -1,10 +1,9 @@
 const {
     default: makeWASocket,
-    useMultiFileAuthState,
-    DisconnectReason
+    useMultiFileAuthState
 } = require("@whiskeysockets/baileys");
 
-const LIMITE_ENVIO = 10; // quantidade máxima por execução
+const LIMITE_ENVIO = 20;
 
 function esperar(min, max) {
 
@@ -19,13 +18,17 @@ function esperar(min, max) {
     );
 }
 
+
 const P = require("pino");
 const XLSX = require("xlsx");
+const qrcode = require("qrcode-terminal");
+
 
 const {
     clienteEnviado,
     marcarComoEnviado
 } = require("./status");
+
 
 function formatarNumero(numero) {
 
@@ -33,23 +36,25 @@ function formatarNumero(numero) {
 
     numero = numero.replace(/\D/g, "");
 
-    // adiciona DDD e 9 se necessário
+
     if (numero.length === 8) {
         numero = "9" + numero;
     }
 
-    // se tiver DDD + número (10 dígitos)
+
     if (numero.length === 10) {
         numero = numero.substring(0,2) + "9" + numero.substring(2);
     }
 
-    // adiciona Brasil
+
     if (!numero.startsWith("55")) {
         numero = "55" + numero;
     }
 
+
     return numero;
 }
+
 
 
 function carregarClientes() {
@@ -62,94 +67,191 @@ function carregarClientes() {
 }
 
 
+
+
 async function iniciar() {
 
     const { state, saveCreds } = await useMultiFileAuthState("auth");
 
+
     const sock = makeWASocket({
+
         auth: state,
+
         logger: P({ level: "silent" })
+
     });
+
 
 
     sock.ev.on("creds.update", saveCreds);
 
 
-    sock.ev.on("connection.update", async ({ connection, qr }) => {
+
+    sock.ev.on("connection.update", async ({ connection, qr, lastDisconnect }) => {
+
 
         if (qr) {
-            console.log("Escaneie o QR Code novamente");
+
+            console.log("\n📱 Escaneie o QR Code:\n");
+
+            qrcode.generate(qr, { small: true });
+
         }
+
+
+
+        if (connection === "connecting") {
+
+            console.log("🔄 Conectando...");
+
+        }
+
+
 
 
         if (connection === "open") {
 
+
             console.log("✅ WhatsApp conectado");
+
 
 
             const clientes = carregarClientes();
 
 
+
             let enviadosNaRodada = 0;
+
+
 
 
             for (const cliente of clientes) {
 
-                 if (enviadosNaRodada >= LIMITE_ENVIO) {
+
+
+                if (enviadosNaRodada >= LIMITE_ENVIO) {
+
 
                     console.log("🚫 Limite de envio atingido.");
-                     break;
+
+                    break;
 
                 }
 
-`Olá, ${cliente.nome}! Tudo bem?
+                const numero = formatarNumero(cliente.numero);
 
-Aqui é da Refricom. Passando para saber como você está e me colocar à disposição caso precise de algum produto ou orçamento.
+                const saudacao =
+                    cliente.nome && String(cliente.nome).trim()
+                        ? `Olá, ${cliente.nome.trim()}! Tudo bem?`
+                        : "Olá! Tudo bem?";
 
-Estamos à disposição! 😊`;
-
+                const mensagem = [
+                    saudacao,
+                    "",
+                    "Aqui é o Noberto da Refricom.",
+                    "Passando para saber como você está e me colocar à disposição caso precise de algum produto ou orçamento.",
+                    "",
+                    "Qualquer coisa é só responder esta mensagem. 😊",
+                    "",
+                    "Estamos à disposição!"
+                ].join("\n");         
 
                 if (clienteEnviado(numero)) {
 
+
                     console.log("⏭️ Já enviado:", cliente.nome);
+
                     continue;
 
                 }
 
 
+
+
+
                 console.log("Enviando para:", cliente.nome, numero);
 
 
-                const resultado = await sock.sendMessage(
+
+
+
+                await sock.sendMessage(
+
                     numero + "@s.whatsapp.net",
+
                     {
-                      text: mensagem
+
+                        text: mensagem
+
                     }
+
                 );
 
 
-                console.log("✅ Mensagem enviada para:", cliente.nome);
 
 
-                // salva no histórico
-                marcarComoEnviado(numero, cliente.nome);
+
+                console.log("✅ Mensagem enviada para:", cliente.nome || "(sem nome)");
+
+
+
+
+                marcarComoEnviado(numero, cliente.nome || "");
+
+
+
 
                 enviadosNaRodada++;
 
+
+
+
                 await esperar(15, 40);
 
-                // pausa de 5 segundos
-                await new Promise(resolve =>
-                    setTimeout(resolve, 5000)
-                );
+
+
             }
 
 
+
+
+
             console.log("✅ Finalizado");
+
+
         }
 
-    });
+
+
+
+
+        if (connection === "close") {
+
+             const shouldReconnect = true;
+
+            console.log("❌ Conexão fechada");
+            console.log(lastDisconnect?.error);
+
+             if (shouldReconnect) {
+                console.log("🔄 Reiniciando conexão...");
+                 iniciar();
+         }
+
 }
 
 
-iniciar();
+
+    });
+
+
+
+}
+
+
+
+iniciar().catch(err => {
+
+    console.log("Erro no bot:", err);
+
+});
